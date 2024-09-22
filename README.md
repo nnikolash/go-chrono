@@ -5,7 +5,7 @@
 * Simulate events in their chronological order
 * Run your implementation in live or in simulation by simply dropping in clock of choice.
 
-This library is used as base for [go-coro](github.com/nnikolash/go-coro).
+This library is used as base for [go-coro](https://github.com/nnikolash/go-coro).
 
 ## Installation
 
@@ -48,7 +48,7 @@ You can find examples in folder `examples` or in test files `*_test.go`
 #### Simulator hangs
 
 Simulator works in a **single thread**. So any blocking code will hang it - sleeping, awaiting for a mutex, using channel, infinite loop etc. So for any delayed action `AfterFunc()` must be used.
-If you don't like your code to look like spagetti of callback handlers and want to write blocking code - try [github.com/nnikolash/go-coro](github.com/nnikolash/go-coro).
+If you don't like your code to look like spagetti of callback handlers and want to write blocking code - try [github.com/nnikolash/go-coro](https://github.com/nnikolash/go-coro).
 
 #### Simulator finishes unexpectedly
 
