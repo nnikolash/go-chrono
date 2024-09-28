@@ -29,7 +29,7 @@ s.AfterFunc(15*time.Second, ...)
 s.ProcessAll(context.Background())
 ```
 
-Real time:
+###### Real time:
 
 ```
 realClock := chrono.NewRealClock()
@@ -45,12 +45,12 @@ You can find examples in folder `examples` or in test files `*_test.go`
 
 ## Troubleshooting
 
-#### Simulator hangs
+### Simulator hangs
 
 Simulator works in a **single thread**. So any blocking code will hang it - sleeping, awaiting for a mutex, using channel, infinite loop etc. So for any delayed action `AfterFunc()` must be used.
 If you don't like your code to look like spagetti of callback handlers and want to write blocking code - try [github.com/nnikolash/go-coro](https://github.com/nnikolash/go-coro).
 
-#### Simulator finishes unexpectedly
+### Simulator finishes unexpectedly
 
 First time working with simulator might produce confusing issues. That is because usually when we work with real-time programs we are used to make some assumptions, which in simulated time might not be true.
 
