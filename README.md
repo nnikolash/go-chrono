@@ -94,3 +94,5 @@ That's why **goroutines** and **channels** most of the time **should not be used
 After some time I found other libraries, which have simmilar purpose. Try them if my library does not work for you:
 * https://github.com/coder/quartz
 * https://github.com/benbjohnson/clock
+* https://github.com/aspenmesh/tock
+* https://github.com/coder/tailscale/blob/main/tstest/clock.go
