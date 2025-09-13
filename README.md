@@ -88,3 +88,9 @@ In real world, main function is called, it runs gorouites for each of events, an
 In simulated world, time between events passed in instant. So in simulation if there will be no events between first and second event in the example, entire year will pass instantly. And although events are scheduled for processing, in this example it is done through goroutine. And starting and executing a goroutine takes time. So there is a short moment of time where there is no events between initial two events. Thus simulator immediatelly jump to last event and exits program.
 
 That's why **goroutines** and **channels** most of the time **should not be used** with the simulator.
+
+## Alternatives
+
+After some time I found other libraries, which have simmilar purpose. Try them if my library does not work for you:
+* https://github.com/coder/quartz
+* https://github.com/benbjohnson/clock
