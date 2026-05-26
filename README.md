@@ -43,6 +43,39 @@ var c Clock = realClock // Use interface Clock for switching between real clock 
 
 You can find examples in folder `examples` or in test files `*_test.go`
 
+## What Simulator supports and does NOT support
+
+Simulator works on **virtual time** that advances only to the next scheduled task's deadline. It has no knowledge of real-time blocking primitives or goroutines.
+
+**Supported primitives** (use these inside callbacks):
+
+* `clock.AfterFunc(d, callback)` — schedule a callback after `d` of virtual time.
+* `clock.UntilFunc(t, callback)` — schedule at an absolute virtual time `t`.
+* `clock.EveryFunc(d, callback)` — periodic callback, returns `false` to stop.
+* `clock.Now()` / `Since()` / `Until()` — read virtual time.
+* `clock.AfterFunc(0, ...)` — "yield to event loop, then run me".
+
+**NOT supported** (these will race or deadlock the Simulator):
+
+* `time.Sleep(d)`, `<-time.After(d)`, `<-time.NewTimer(d).C` — block real time; Simulator does not know about them.
+* `go func() { ... }` from inside a callback — Simulator may advance virtual time and exit before the goroutine has had a chance to schedule its work.
+* Reading from a raw `chan` with no producer scheduled via Clock — deadlocks the simulation.
+* Any `sync.Mutex`/`sync.WaitGroup` wait that depends on something other than Clock-scheduled work.
+
+**Recommended pattern**: schedule follow-up work via `clock.AfterFunc(0, ...)` (or via [go-coro](https://github.com/nnikolash/go-coro)'s `Scheduler.Go`, which yields properly into the event loop). Never spawn raw goroutines from inside Simulator callbacks.
+
+A test demonstrating the antipattern lives in `antipatterns_test.go`.
+
+## Timezone handling
+
+Simulator preserves the `time.Location` of the origin time passed to `NewSimulator`. There is no implicit conversion to UTC. To keep things deterministic across systems, prefer constructing Simulator with a UTC origin:
+
+```go
+s := chrono.NewSimulator(time.Now().UTC())
+```
+
+Be aware: if your code compares simulated `time.Time` values against `time.Time` constants with explicit zones (e.g. `time.Date(..., loc)`), make sure the zones are aligned — `time.Time` equality is location-sensitive.
+
 ## Troubleshooting
 
 ### Simulator hangs

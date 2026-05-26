@@ -7,29 +7,6 @@ type Timer interface {
 	Stop() bool
 }
 
-// The timer which cannot be stopped, can be only reset.
-// Used to be returned by AfterFunc and UntilFunc when the deadline durection is zero.
-func newExpiredTimer(c Clock, f func(now time.Time)) *expiredTimer {
-	return &expiredTimer{
-		c: c,
-		f: f,
-	}
-}
-
-type expiredTimer struct {
-	c Clock
-	f func(now time.Time)
-}
-
-func (t *expiredTimer) Reset(d time.Duration) bool {
-	t.c.AfterFunc(d, t.f)
-	return false
-}
-
-func (t *expiredTimer) Stop() bool {
-	return false
-}
-
 func newSimTimer(sim *Simulator, deadline time.Time, action func(now time.Time)) (*simTimer, *Task) {
 	t := &simTimer{
 		sim: sim,

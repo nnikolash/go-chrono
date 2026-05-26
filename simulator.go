@@ -47,8 +47,8 @@ func (s *Simulator) Now() time.Time {
 }
 
 func (s *Simulator) SetNow(now time.Time) (time.Time, time.Duration) {
-	s.usageLock.RLock()
-	defer s.usageLock.RUnlock()
+	s.usageLock.Lock()
+	defer s.usageLock.Unlock()
 
 	return s.setNow(now)
 }

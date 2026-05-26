@@ -66,12 +66,6 @@ func (c *RealClock) Until(t time.Time) time.Duration {
 }
 
 func (c *RealClock) AfterFunc(d time.Duration, f func(now time.Time)) Timer {
-	if d == 0 {
-		go c.executeTask(f)
-
-		return newExpiredTimer(c, f)
-	}
-
 	return time.AfterFunc(d, func() {
 		c.executeTask(f)
 	})
@@ -89,19 +83,43 @@ func (c *RealClock) UntilFunc(t time.Time, f func(now time.Time)) Timer {
 }
 
 func (c *RealClock) EveryFunc(d time.Duration, f func(now time.Time) bool) Ticker {
-	ticker := time.NewTicker(d)
+	t := &realTicker{
+		inner: time.NewTicker(d),
+		done:  make(chan struct{}),
+	}
 
 	go func() {
-		for range ticker.C {
-			contin := c.invokeTickHandler(f)
-			if !contin {
-				ticker.Stop()
+		for {
+			select {
+			case <-t.done:
 				return
+			case <-t.inner.C:
+				if !c.invokeTickHandler(f) {
+					t.Stop()
+					return
+				}
 			}
 		}
 	}()
 
-	return ticker
+	return t
+}
+
+type realTicker struct {
+	inner    *time.Ticker
+	done     chan struct{}
+	stopOnce sync.Once
+}
+
+func (t *realTicker) Stop() {
+	t.stopOnce.Do(func() {
+		t.inner.Stop()
+		close(t.done)
+	})
+}
+
+func (t *realTicker) Reset(d time.Duration) {
+	t.inner.Reset(d)
 }
 
 func (c *RealClock) invokeTickHandler(f func(now time.Time) bool) bool {
