@@ -144,7 +144,7 @@ func (s *Simulator) PopAllTasks() []*Task {
 	tasks := s.taskQueue
 	s.taskQueue = newTaskQueue()
 
-	return []*Task(*tasks)
+	return tasks.tasks
 }
 
 func (s *Simulator) processNextTask(keepLock bool) (time.Time, time.Duration) {

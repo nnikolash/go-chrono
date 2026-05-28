@@ -49,7 +49,14 @@ func TestSimTimer(t *testing.T) {
 		timer3.Reset(1 * time.Minute)
 	})
 
-	s.AfterFunc(4*time.Minute, func(now time.Time) {
+	// Verification runs at +5min, strictly after the +4min group (timer4 and
+	// the reset timer3) has fired. Equal deadlines now resolve FIFO by
+	// insertion order, so an observer scheduled at the same +4min deadline as
+	// the reset timers would run before them (it was inserted first, at start)
+	// and would observe them not-yet-fired. Scheduling it later keeps the
+	// intent — confirm timer3/timer4 eventually fire — without depending on
+	// intra-deadline ordering.
+	s.AfterFunc(5*time.Minute, func(now time.Time) {
 		require.True(t, timer1fired)
 		require.False(t, timer2fired)
 		require.True(t, timer3fired)
