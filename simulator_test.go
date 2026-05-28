@@ -236,6 +236,72 @@ func TestSimTimer_Stop_OnExpiredTimer(t *testing.T) {
 	require.False(t, timer.Stop(), "Stop on already-fired timer should return false")
 }
 
+func TestSimulator_Since(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Unix(1_700_000_000, 0)
+	s := chrono.NewSimulator(t0)
+
+	require.Equal(t, time.Hour, s.Since(t0.Add(-time.Hour)), "past instant")
+	require.Equal(t, time.Duration(0), s.Since(t0), "current instant")
+	require.Equal(t, -time.Hour, s.Since(t0.Add(time.Hour)), "future instant")
+
+	s.SetNow(t0.Add(2 * time.Hour))
+	require.Equal(t, 3*time.Hour, s.Since(t0.Add(-time.Hour)), "tracks virtual now after SetNow")
+}
+
+func TestSimulator_Until(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Unix(1_700_000_000, 0)
+	s := chrono.NewSimulator(t0)
+
+	require.Equal(t, time.Hour, s.Until(t0.Add(time.Hour)), "future instant")
+	require.Equal(t, time.Duration(0), s.Until(t0), "current instant")
+	require.Equal(t, -time.Hour, s.Until(t0.Add(-time.Hour)), "past instant")
+}
+
+func TestSimulator_UntilFunc_FiresAtAbsoluteTime(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Unix(0, 0)
+	s := chrono.NewSimulator(t0)
+
+	var firedAt time.Duration = -1
+	s.UntilFunc(t0.Add(30*time.Second), func(now time.Time) {
+		firedAt = now.Sub(t0)
+	})
+
+	newNow, leap, hadTasks := s.Advance()
+	require.True(t, hadTasks)
+	require.Equal(t, 30*time.Second, firedAt, "callback runs at the absolute deadline")
+	require.Equal(t, t0.Add(30*time.Second), newNow)
+	require.Equal(t, 30*time.Second, leap)
+}
+
+// UntilFunc shares the same heap as AfterFunc, so equal absolute deadlines must
+// also resolve FIFO by insertion order.
+func TestSimulator_UntilFunc_EqualDeadline_FIFOOrder(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Unix(0, 0)
+	s := chrono.NewSimulator(t0)
+	deadline := t0.Add(time.Minute)
+
+	var order []string
+	for _, name := range []string{"a", "b", "c", "d", "e"} {
+		name := name
+		s.UntilFunc(deadline, func(now time.Time) {
+			order = append(order, name)
+		})
+	}
+
+	n, err := s.ProcessAll(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 5, n)
+	require.Equal(t, []string{"a", "b", "c", "d", "e"}, order)
+}
+
 func TestSimulator_PreservesTimeLocation(t *testing.T) {
 	t.Parallel()
 
