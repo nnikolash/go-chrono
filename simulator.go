@@ -101,7 +101,7 @@ func (s *Simulator) AdvanceIfBefore(before time.Time) (newNow time.Time, leap ti
 		}
 	}
 
-	newNow, leap = s.processNextTask(false)
+	newNow, leap = s.processNextTask()
 
 	return newNow, leap, true
 }
@@ -147,7 +147,11 @@ func (s *Simulator) PopAllTasks() []*Task {
 	return tasks.tasks
 }
 
-func (s *Simulator) processNextTask(keepLock bool) (time.Time, time.Duration) {
+// processNextTask pops and runs the earliest task. It is entered with the
+// usage lock held and returns with it released: the lock is dropped before the
+// task callback runs (so the callback can schedule tasks without deadlocking)
+// and re-taken only to enqueue a following task.
+func (s *Simulator) processNextTask() (time.Time, time.Duration) {
 	nextTask := s.taskQueue.PopTask()
 	now, leap := s.setNow(nextTask.Deadline)
 	s.usageLock.Unlock()
@@ -157,11 +161,7 @@ func (s *Simulator) processNextTask(keepLock bool) (time.Time, time.Duration) {
 	if followingTask != nil {
 		s.usageLock.Lock()
 		s.taskQueue.PushTask(followingTask)
-		if !keepLock {
-			s.usageLock.Unlock()
-		}
-	} else if keepLock {
-		s.usageLock.Lock()
+		s.usageLock.Unlock()
 	}
 
 	return now, leap
