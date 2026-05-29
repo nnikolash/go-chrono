@@ -122,10 +122,43 @@ In simulated world, time between events passed in instant. So in simulation if t
 
 That's why **goroutines** and **channels** most of the time **should not be used** with the simulator.
 
-## Alternatives
+## Design, prior art and alternatives
 
-After some time I found other libraries, which have simmilar purpose. Try them if my library does not work for you:
-* https://github.com/coder/quartz
-* https://github.com/benbjohnson/clock
-* https://github.com/aspenmesh/tock
-* https://github.com/coder/tailscale/blob/main/tstest/clock.go
+This library is a small, hand-rolled **discrete-event simulation (DES) kernel** behind a `Clock`
+interface. That is a deliberate, standard design — not a reinvention. A 2026 multi-source review
+([`docs/2026-05-30-time-control-alternatives-research.md`](docs/2026-05-30-time-control-alternatives-research.md))
+confirmed each decision against DES literature (Leemis/Park, CMU, SimPy) and the Go ecosystem:
+
+* **"Advance the clock to the next event in a priority queue"** is the canonical next-event DES
+  algorithm. `Advance()`/`ProcessAll()` implement it directly.
+* A **min-heap ordered by deadline** is the standard Future Event List structure (SimPy uses a heap too).
+* **FIFO tie-break via a monotonic sequence counter** for equal deadlines is the textbook pattern —
+  identical to Python `heapq` (`(priority, entry_count, task)`), SimPy (`(t, eid, event)`) and Java
+  `PriorityBlockingQueue` (`AtomicLong`). Binary heaps (incl. Go's `container/heap`) are *not* stable,
+  so a secondary key is mandatory for determinism.
+* **Injecting a `Clock` interface** with interchangeable real/simulated implementations is the
+  idiomatic Go way to share time-dependent code between production and backtest.
+
+### Honest comparison with the alternatives
+
+| Library / approach | Real+fake `Clock` | Advance-to-next-event (fast-forward) | Solves goroutine-wakeup race | Usable as a **production** backtester engine | Maintained (2026) |
+|---|---|---|---|---|---|
+| **go-chrono** (this) | ✅ | ✅ free multi-event `Advance`/`ProcessAll` | ⚠️ via lock discipline, not a formal trap | ✅ (same code in prod & sim) | ✅ |
+| [coder/quartz](https://github.com/coder/quartz) | ✅ | ✅ but `AdvanceNext()` capped at next event "and no further" | ✅ explicit trap + `AdvanceWaiter` | ✅ | ✅ active, but pre-1.0 |
+| [benbjohnson/clock](https://github.com/benbjohnson/clock) | ✅ | ❌ manual `Add`/`Set` only | ❌ | ✅ | ❌ archived 2023, read-only |
+| [`testing/synctest`](https://pkg.go.dev/testing/synctest) (Go 1.25 stdlib) | fake only | ✅ auto-advance when all goroutines *durably* blocked | ✅ (bubble model) | ❌ **test-only** (requires `*testing.T`; non-test API removed) | ✅ stdlib |
+| DES engines: [simgo](https://github.com/fschuetz04/simgo), [godes](https://github.com/agoussia/godes) | ❌ (model framework, not a `Clock`) | ✅ | n/a (process model) | ⚠️ build model inside; doesn't fit "same unmodified code in prod" | ⚠️ niche, pre-1.0 |
+
+**When to pick what:**
+
+* **This library / quartz** — you need the *same* code to run in production (real time) and in a
+  deterministic backtest/simulation. quartz is the strongest off-the-shelf option and already has a
+  formal race-control mechanism; go-chrono gives freer fast-forward and the go-coro coroutine layer.
+* **`testing/synctest`** — you only need to *test* time-dependent concurrent code. Best-in-class for
+  that, but it cannot be your production simulation engine.
+* **simgo / godes** — you're building a standalone simulation model (queueing, logistics) rather than
+  sharing one codebase between prod and sim.
+
+Other clock libraries worth a look: [aspenmesh/tock](https://github.com/aspenmesh/tock),
+[tailscale tstest/clock](https://github.com/tailscale/tailscale/blob/main/tstest/clock.go),
+[jonboulle/clockwork](https://github.com/jonboulle/clockwork), [k8s.io/utils/clock](https://pkg.go.dev/k8s.io/utils/clock).
