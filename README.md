@@ -62,6 +62,15 @@ Simulator works on **virtual time** that advances only to the next scheduled tas
 * Reading from a raw `chan` with no producer scheduled via Clock — deadlocks the simulation.
 * Any `sync.Mutex`/`sync.WaitGroup` wait that depends on something other than Clock-scheduled work.
 
+**Threading / determinism contract**: `Advance`/`ProcessAll` run each callback inline on a single
+thread, so when they return the callback has already finished. Scheduling methods
+(`AfterFunc`/`UntilFunc`/`EveryFunc`) and timer `Stop`/`Reset` are mutex-guarded and thus *safe* to
+call from other goroutines — but that is not the same as *deterministic*. A task pushed by another
+goroutine **while** `Advance`/`ProcessAll` is running may land before or after the next event is
+picked (a race). For a reproducible run, during `Advance`/`ProcessAll` the only source of new tasks
+must be the callbacks themselves; schedule from other goroutines only while the simulation is paused
+(between `Advance`/`ProcessAll` calls).
+
 **Recommended pattern**: schedule follow-up work via `clock.AfterFunc(0, ...)` (or via [go-coro](https://github.com/nnikolash/go-coro)'s `Scheduler.Go`, which yields properly into the event loop). Never spawn raw goroutines from inside Simulator callbacks.
 
 A test demonstrating the antipattern lives in `antipatterns_test.go`.

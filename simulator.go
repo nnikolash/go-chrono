@@ -10,7 +10,16 @@ import (
 // Upon start, initial events must be placed into queue using AfterFunc, UntilFunc or EveryFunc methods.
 // Then, the time can be advanced using Advance or ProcessAll methods.
 // Tasks are ran in their chronological order. They can generate additional tasks.
-// Simulation happens in a single thread, but tasks can be scheduled from different threads.
+//
+// Simulation happens in a single thread: Advance/ProcessAll run each task callback inline and
+// synchronously, so once they return the callback has already completed.
+//
+// Scheduling (AfterFunc/UntilFunc/EveryFunc) and timer Stop/Reset are mutex-guarded and therefore
+// memory-safe to call from other goroutines. That makes them safe, but NOT deterministic: a task
+// pushed by another goroutine while Advance/ProcessAll is running may land before or after the next
+// event is picked - a non-deterministic race. For a reproducible run, the only source of new tasks
+// during Advance/ProcessAll must be the callbacks themselves; schedule from other goroutines only
+// while the simulation is paused (between Advance/ProcessAll calls).
 func NewSimulator(now time.Time) *Simulator {
 	return NewSimulatorWithOpts(now, nil)
 }
